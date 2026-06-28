@@ -21,10 +21,24 @@ export default function CustomersPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const copyCustomerId = (id: string) => {
-    navigator.clipboard.writeText(id).then(() => {
+    // Fallback for non-HTTPS contexts where navigator.clipboard is unavailable
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(id).then(() => {
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+      });
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = id;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    });
+    }
   };
 
   const fetchCustomers = () => {
