@@ -18,6 +18,15 @@ export default function CustomersPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<CustomerCreate>({ name: "", email: "", organization: "", phone: "", address: "" });
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyCustomerId = (id: string) => {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
   const fetchCustomers = () => {
     setLoading(true);
     customersApi
@@ -186,6 +195,16 @@ export default function CustomersPage() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => copyCustomerId(c.id)}
+                        title="Copy Customer ID"
+                        className="rounded-md border border-outline-variant px-3 py-1.5 text-xs font-medium text-on-surface-variant transition hover:bg-surface-container"
+                      >
+                        <span className="flex items-center gap-1">
+                          <MaterialSymbol name={copiedId === c.id ? "check" : "content_copy"} className="text-sm" />
+                          {copiedId === c.id ? "Copied!" : "Copy ID"}
+                        </span>
+                      </button>
                       <Link
                         href={`/licenses/generate?customer=${c.id}`}
                         className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary transition hover:opacity-90"
