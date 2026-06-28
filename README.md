@@ -29,6 +29,16 @@ docker compose up -d
 # Admin API: http://localhost:4000
 ```
 
+## Create Admin User
+
+```bash
+docker compose exec admin-api python -m app.scripts.create_admin \
+  --email admin@example.com \
+  --password secret123 \
+  --username "Admin" \
+  --org "Vrika"
+```
+
 ## Shared Database
 
 Both `vrika-server` (main product) and `vrika-admin` connect to the **same MongoDB database** (`cipherstrike`). They share:
