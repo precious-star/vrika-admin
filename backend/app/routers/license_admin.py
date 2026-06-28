@@ -66,6 +66,8 @@ def _customer_out(doc: dict, licenses_count: int = 0) -> CustomerOut:
 def _license_out(doc: dict) -> LicenseOut:
     # Auto-expire if past expiry date
     exp = doc["expires_at"]
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
     current_status = doc["status"]
     if current_status == "active" and exp < datetime.now(timezone.utc):
         current_status = "expired"
