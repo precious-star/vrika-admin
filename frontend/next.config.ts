@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: appDir,
   },
+  async rewrites() {
+    const backendUrl = process.env.INTERNAL_API_URL || "http://admin-api:4000";
+    return [
+      {
+        source: "/be/:path*",
+        destination: `${backendUrl}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -15,7 +15,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    INTERNAL_API_URL=http://api:8000
+    INTERNAL_API_URL=http://admin-api:4000
 
 RUN npx next build
 
@@ -26,7 +26,7 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3002 \
-    INTERNAL_API_URL=http://api:8000
+    INTERNAL_API_URL=http://admin-api:4000
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
