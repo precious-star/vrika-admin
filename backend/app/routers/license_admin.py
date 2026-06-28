@@ -23,7 +23,6 @@ from app.schemas.license_admin import (
 )
 from app.services.license_signing import LicenseSigningService
 from app.services.machine_fingerprint import MachineFingerprintService
-from app.services.agent_client import AgentUnreachableError, fetch_agent_health_and_catalog, tool_installed_from_agent_health
 
 router = APIRouter(prefix="/license-admin", tags=["license-admin"])
 
@@ -297,45 +296,44 @@ async def hash_machine_info(
 @router.get("/available-tools")
 async def list_available_tools(
     user: dict = Depends(require_auth_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    """Return list of all tools from the agent catalog for license tool selection.
+    """Return list of all known tools for license tool selection.
 
     Returns [{name, description, category, active}, ...] sorted by name.
+    Uses a static registry of known CipherStrike/NyxStrike tools.
     """
     _require_license_admin(user)
-    from app.config import get_settings
-    settings = get_settings()
 
-    try:
-        health, catalog = await fetch_agent_health_and_catalog(settings)
-    except AgentUnreachableError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Agent unreachable: {e.message}",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch tool catalog: {str(e)}",
-        )
+    tools = [
+        {"name": "nmap", "description": "Network port scanner and service detection", "category": "network_recon"},
+        {"name": "nuclei", "description": "Fast vulnerability scanner with templates", "category": "web_vuln"},
+        {"name": "nikto", "description": "Web server vulnerability scanner", "category": "web_vuln"},
+        {"name": "httpx", "description": "HTTP probe and technology fingerprinting", "category": "web_recon"},
+        {"name": "whatweb", "description": "Web technology identification", "category": "web_recon"},
+        {"name": "ffuf", "description": "Fast web fuzzer for directory/file discovery", "category": "web_recon"},
+        {"name": "gobuster", "description": "Directory and DNS brute-force scanner", "category": "web_recon"},
+        {"name": "sqlmap", "description": "SQL injection detection and exploitation", "category": "exploitation"},
+        {"name": "subfinder", "description": "Subdomain discovery tool", "category": "network_recon"},
+        {"name": "amass", "description": "Attack surface mapping and subdomain enumeration", "category": "network_recon"},
+        {"name": "dirsearch", "description": "Web path brute-forcer", "category": "web_recon"},
+        {"name": "wpscan", "description": "WordPress vulnerability scanner", "category": "web_vuln"},
+        {"name": "feroxbuster", "description": "Fast content discovery tool", "category": "web_recon"},
+        {"name": "masscan", "description": "High-speed TCP port scanner", "category": "network_recon"},
+        {"name": "rustscan", "description": "Fast port scanner with nmap integration", "category": "network_recon"},
+        {"name": "testssl", "description": "TLS/SSL cipher and vulnerability testing", "category": "network_recon"},
+        {"name": "sslscan", "description": "SSL/TLS protocol scanner", "category": "network_recon"},
+        {"name": "dnsx", "description": "DNS toolkit for queries and resolution", "category": "network_recon"},
+        {"name": "katana", "description": "Web crawling and spidering framework", "category": "web_recon"},
+        {"name": "gau", "description": "Fetch known URLs from web archives", "category": "osint"},
+        {"name": "waybackurls", "description": "Fetch URLs from Wayback Machine", "category": "osint"},
+        {"name": "arjun", "description": "HTTP parameter discovery", "category": "web_recon"},
+        {"name": "paramspider", "description": "URL parameter mining from web archives", "category": "osint"},
+    ]
 
-    raw_tools = catalog.get("tools")
-    if not isinstance(raw_tools, list):
-        return []
-
-    tools = []
-    for item in raw_tools:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or "").strip()
-        if not name:
-            continue
-        tools.append({
-            "name": name,
-            "description": str(item.get("desc") or item.get("description") or "").strip(),
-            "category": str(item.get("category") or "uncategorized"),
-            "active": str(tool_installed_from_agent_health(health, item)),
-        })
+    # Add active status (all tools available in registry)
+    for t in tools:
+        t["active"] = "true"
 
     tools.sort(key=lambda t: t["name"])
     return tools

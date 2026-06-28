@@ -2,6 +2,8 @@
 
 Internal license administration portal for the Vrika/CipherStrike cybersecurity platform.
 
+**Architecture:** This admin server runs in the cloud. It manages and generates licenses that are deployed to on-premise vrika-server installations. Each has its own database and JWT secret — they are completely independent.
+
 ## Structure
 
 ```
@@ -18,11 +20,16 @@ vrika-admin/
 cp backend/.env.example backend/.env
 cp frontend/.env.local.example frontend/.env.local
 
-# 2. Add license signing keys
-mkdir -p backend/keys
-# Copy license_private.pem and license_public.pem to backend/keys/
+# 2. Generate a JWT secret
+openssl rand -hex 32
+# Paste the output as JWT_SECRET in backend/.env
 
-# 3. Start all services
+# 3. Generate license signing keys (ECDSA P-256)
+mkdir -p backend/keys
+openssl ecparam -genkey -name prime256v1 -noout -out backend/keys/license_private.pem
+openssl ec -in backend/keys/license_private.pem -pubout -out backend/keys/license_public.pem
+
+# 4. Start all services
 docker compose up -d
 
 # Admin UI: http://localhost:4001
@@ -39,14 +46,14 @@ docker compose exec admin-api python -m app.scripts.create_admin \
   --org "Vrika"
 ```
 
-## Shared Database
+## Database
 
-Both `vrika-server` (main product) and `vrika-admin` connect to the **same MongoDB database** (`cipherstrike`). They share:
-- `users` collection (authentication)
-- `organizations` collection
-- `licenses` collection
-- `license_customers` collection
-- `license_activity` collection
+The admin portal uses its own MongoDB instance (runs as `admin-mongo` container). It stores:
+- `users` — admin portal users
+- `organizations` — admin organizations
+- `licenses` — generated license records
+- `license_customers` — customer registry
+- `license_activity` — audit log
 
 ## Backend API Endpoints
 
@@ -76,7 +83,8 @@ Both `vrika-server` (main product) and `vrika-admin` connect to the **same Mongo
 
 ## Security
 
-- JWT authentication (shared secret with main backend)
+- Independent JWT auth (separate secret from on-prem vrika-server)
 - Only `license_admin` or `tenant_admin` roles can access
 - Private signing key never leaves this server
 - ECDSA P-256 signatures for license integrity
+- Generated licenses are deployed to on-prem servers as `.key` files
