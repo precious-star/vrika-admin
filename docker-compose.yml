@@ -27,11 +27,11 @@ services:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:4000
 
   admin-mongo:
-    image: mongo:7
+    image: mongo:4.4
     volumes:
       - admin_mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
