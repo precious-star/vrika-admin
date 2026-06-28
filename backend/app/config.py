@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     )
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: list[str] = ["http://localhost:4001"]
 
 
 @lru_cache()

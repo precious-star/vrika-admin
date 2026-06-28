@@ -6,7 +6,7 @@ Internal license administration portal for the Vrika/CipherStrike cybersecurity 
 
 ```
 vrika-admin/
-├── frontend/          # Next.js admin UI (port 3001)
+├── frontend/          # Next.js admin UI (port 4001)
 ├── backend/           # FastAPI admin API (port 4000)
 └── docker-compose.yml # Full-stack deployment
 ```
@@ -25,7 +25,7 @@ mkdir -p backend/keys
 # 3. Start all services
 docker compose up -d
 
-# Admin UI: http://localhost:3001
+# Admin UI: http://localhost:4001
 # Admin API: http://localhost:4000
 ```
 
