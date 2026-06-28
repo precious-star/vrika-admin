@@ -28,6 +28,7 @@ async def init_db() -> None:
     await db["license_activity"].create_index([("timestamp", -1)])
     await db["licenses"].create_index("customer_id")
     await db["licenses"].create_index("status")
+    await db["machine_infos"].create_index("customer_id")
 
 
 async def close_db() -> None:

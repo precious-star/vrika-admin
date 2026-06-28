@@ -40,12 +40,16 @@ class CustomerCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     email: str = Field(..., min_length=3, max_length=320)
     organization: str = Field(..., min_length=1, max_length=200)
+    phone: str = Field(default="", max_length=20)
+    address: str = Field(default="", max_length=500)
 
 
 class CustomerUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     email: Optional[str] = Field(None, min_length=3, max_length=320)
     organization: Optional[str] = Field(None, min_length=1, max_length=200)
+    phone: Optional[str] = Field(None, max_length=20)
+    address: Optional[str] = Field(None, max_length=500)
 
 
 class CustomerOut(BaseModel):
@@ -53,6 +57,8 @@ class CustomerOut(BaseModel):
     name: str
     email: str
     organization: str
+    phone: str = ""
+    address: str = ""
     created_at: datetime
     licenses_count: int = 0
 
@@ -68,7 +74,7 @@ class LicenseGenerate(BaseModel):
     features: list[LicenseFeature]
     allowed_tools: list[str] = Field(default_factory=list, description="Tool names the customer is licensed to use. Empty = all tools allowed.")
     expires_at: str = Field(..., description="ISO date string (YYYY-MM-DD)")
-    machine_fingerprint: str = Field(..., min_length=4, max_length=512)
+    machine_info_id: str = Field(..., description="ID of stored machine info to use for fingerprint")
 
 
 class LicenseOut(BaseModel):
@@ -121,3 +127,19 @@ class MachineInfoUpload(BaseModel):
     hostname: str = Field(default="", max_length=256)
     mac_address: str = Field(default="", max_length=64)
     collected_at: Optional[str] = None
+
+
+class MachineInfoOut(BaseModel):
+    id: str
+    customer_id: str
+    machine_id: str = ""
+    bios_uuid: str = ""
+    cpu_vendor: str = ""
+    cpu_model: str = ""
+    cpu_family: str = ""
+    disk_serial: str = ""
+    hostname: str = ""
+    mac_address: str = ""
+    fingerprint: str
+    label: str = ""
+    created_at: datetime

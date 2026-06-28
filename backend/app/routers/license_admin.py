@@ -19,6 +19,7 @@ from app.schemas.license_admin import (
     LicenseGenerate,
     LicenseOut,
     LicenseStatus,
+    MachineInfoOut,
     MachineInfoUpload,
 )
 from app.services.license_signing import LicenseSigningService
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/license-admin", tags=["license-admin"])
 CUSTOMERS_COLLECTION = "license_customers"
 LICENSES_COLLECTION = "licenses"
 LICENSE_ACTIVITY_COLLECTION = "license_activity"
+MACHINE_INFOS_COLLECTION = "machine_infos"
 
 
 # --- Helpers ---
@@ -54,6 +56,8 @@ def _customer_out(doc: dict, licenses_count: int = 0) -> CustomerOut:
         name=doc["name"],
         email=doc["email"],
         organization=doc["organization"],
+        phone=doc.get("phone", ""),
+        address=doc.get("address", ""),
         created_at=doc["created_at"],
         licenses_count=licenses_count,
     )
@@ -190,6 +194,8 @@ async def create_customer(
         "name": body.name,
         "email": body.email,
         "organization": body.organization,
+        "phone": body.phone,
+        "address": body.address,
         "created_at": datetime.now(timezone.utc),
     }
     result = await db[CUSTOMERS_COLLECTION].insert_one(doc)
@@ -273,24 +279,112 @@ async def get_license(
     return _license_out(doc)
 
 
-@router.post("/machine-info/hash")
-async def hash_machine_info(
+@router.post("/customers/{customer_id}/machine-info", response_model=MachineInfoOut, status_code=status.HTTP_201_CREATED)
+async def add_machine_info(
+    customer_id: str,
     body: MachineInfoUpload,
     user: dict = Depends(require_auth_user),
-) -> dict[str, str]:
-    """Upload machine-info.json contents and get back SHA256 fingerprint.
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> MachineInfoOut:
+    """Submit machine info for a customer. Generates fingerprint and stores it.
 
-    Admin uploads the machine-info.json collected from customer's server.
-    Returns the fingerprint hash to use in license generation.
+    Customers can have multiple machine infos (one per deployment machine).
     """
     _require_license_admin(user)
+
+    # Verify customer exists
+    customer = await db[CUSTOMERS_COLLECTION].find_one({"_id": _oid(customer_id)})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
 
     try:
         fingerprint = MachineFingerprintService.generate_fingerprint(body.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"fingerprint": fingerprint}
+    doc = {
+        "customer_id": customer["_id"],
+        "machine_id": body.machine_id,
+        "bios_uuid": body.bios_uuid,
+        "cpu_vendor": body.cpu_vendor,
+        "cpu_model": body.cpu_model,
+        "cpu_family": body.cpu_family,
+        "disk_serial": body.disk_serial,
+        "hostname": body.hostname,
+        "mac_address": body.mac_address,
+        "fingerprint": fingerprint,
+        "label": body.hostname or body.machine_id or "",
+        "created_at": datetime.now(timezone.utc),
+    }
+    result = await db[MACHINE_INFOS_COLLECTION].insert_one(doc)
+    doc["_id"] = result.inserted_id
+
+    return MachineInfoOut(
+        id=str(doc["_id"]),
+        customer_id=str(doc["customer_id"]),
+        machine_id=doc["machine_id"],
+        bios_uuid=doc["bios_uuid"],
+        cpu_vendor=doc["cpu_vendor"],
+        cpu_model=doc["cpu_model"],
+        cpu_family=doc["cpu_family"],
+        disk_serial=doc["disk_serial"],
+        hostname=doc["hostname"],
+        mac_address=doc["mac_address"],
+        fingerprint=doc["fingerprint"],
+        label=doc["label"],
+        created_at=doc["created_at"],
+    )
+
+
+@router.get("/customers/{customer_id}/machine-info", response_model=list[MachineInfoOut])
+async def list_machine_infos(
+    customer_id: str,
+    user: dict = Depends(require_auth_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> list[MachineInfoOut]:
+    """List all stored machine infos for a customer."""
+    _require_license_admin(user)
+
+    customer = await db[CUSTOMERS_COLLECTION].find_one({"_id": _oid(customer_id)})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cursor = db[MACHINE_INFOS_COLLECTION].find({"customer_id": customer["_id"]}).sort("created_at", -1)
+    results: list[MachineInfoOut] = []
+    async for doc in cursor:
+        results.append(MachineInfoOut(
+            id=str(doc["_id"]),
+            customer_id=str(doc["customer_id"]),
+            machine_id=doc.get("machine_id", ""),
+            bios_uuid=doc.get("bios_uuid", ""),
+            cpu_vendor=doc.get("cpu_vendor", ""),
+            cpu_model=doc.get("cpu_model", ""),
+            cpu_family=doc.get("cpu_family", ""),
+            disk_serial=doc.get("disk_serial", ""),
+            hostname=doc.get("hostname", ""),
+            mac_address=doc.get("mac_address", ""),
+            fingerprint=doc["fingerprint"],
+            label=doc.get("label", ""),
+            created_at=doc["created_at"],
+        ))
+    return results
+
+
+@router.delete("/customers/{customer_id}/machine-info/{machine_info_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_machine_info(
+    customer_id: str,
+    machine_info_id: str,
+    user: dict = Depends(require_auth_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> None:
+    """Delete a stored machine info entry."""
+    _require_license_admin(user)
+    result = await db[MACHINE_INFOS_COLLECTION].delete_one({
+        "_id": _oid(machine_info_id),
+        "customer_id": _oid(customer_id),
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Machine info not found")
 
 
 @router.get("/available-tools")
@@ -351,6 +445,16 @@ async def generate_license(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
+    # Look up stored machine info
+    machine_info_doc = await db[MACHINE_INFOS_COLLECTION].find_one({
+        "_id": _oid(body.machine_info_id),
+        "customer_id": customer["_id"],
+    })
+    if not machine_info_doc:
+        raise HTTPException(status_code=404, detail="Machine info not found for this customer")
+
+    machine_fingerprint = machine_info_doc["fingerprint"]
+
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
     except ValueError:
@@ -369,7 +473,7 @@ async def generate_license(
         "product": body.product,
         "features": [f.value for f in body.features],
         "allowed_tools": body.allowed_tools,
-        "machine_fingerprint": body.machine_fingerprint,
+        "machine_fingerprint": machine_fingerprint,
         "expires_at": expires,
         "status": "active",
         "key_id": "prod-key-1",
