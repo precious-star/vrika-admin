@@ -188,7 +188,11 @@ def main():
     )
     parser.add_argument(
         "--save-local", action="store_true",
-        help="Also save machine-info.json locally"
+        help="Also save machine-info.json in current directory"
+    )
+    parser.add_argument(
+        "--output-dir", default="/vrika-server/server/tools",
+        help="Directory to save machine-info.json (default: /vrika-server/server/tools)"
     )
     args = parser.parse_args()
 
@@ -209,10 +213,17 @@ def main():
         )
         sys.exit(1)
 
+    # Always save to output directory
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "machine-info.json"
+    out_path.write_text(json.dumps(info, indent=2))
+    print(f"\nSaved to {out_path.resolve()}")
+
     if args.save_local:
-        out_path = Path("machine-info.json")
-        out_path.write_text(json.dumps(info, indent=2))
-        print(f"\nSaved to {out_path.resolve()}")
+        local_path = Path("machine-info.json")
+        local_path.write_text(json.dumps(info, indent=2))
+        print(f"Also saved to {local_path.resolve()}")
 
     print(f"\nPushing to admin portal (customer: {args.customer_id})...")
     result = push_to_api(info, args.customer_id, args.api_url, args.token)
