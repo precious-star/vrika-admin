@@ -16,7 +16,7 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<CustomerCreate>({ name: "", email: "", organization: "" });
+  const [form, setForm] = useState<CustomerCreate>({ name: "", email: "", organization: "", phone: "", address: "" });
 
   const fetchCustomers = () => {
     setLoading(true);
@@ -36,7 +36,7 @@ export default function CustomersPage() {
     setCreating(true);
     try {
       await customersApi.create(form);
-      setForm({ name: "", email: "", organization: "" });
+      setForm({ name: "", email: "", organization: "", phone: "", address: "" });
       setShowCreate(false);
       fetchCustomers();
     } catch (err) {
@@ -110,6 +110,26 @@ export default function CustomersPage() {
                 onChange={(e) => setForm({ ...form, organization: e.target.value })}
                 className={inputCls}
                 placeholder="Company Inc."
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Phone</label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className={inputCls}
+                placeholder="+91 9876543210"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Address</label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                className={inputCls}
+                placeholder="Full address"
               />
             </div>
             <div className="flex items-end gap-2 sm:col-span-3">

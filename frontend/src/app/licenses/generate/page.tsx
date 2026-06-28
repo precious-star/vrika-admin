@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { MaterialSymbol } from "@/components/ui/MaterialSymbol";
 import { LoaderSvg } from "@/components/ui/LoaderSvg";
 import { customersApi, type Customer } from "@/api/customers";
-import { licensesApi, type License, type LicenseFeature, type LicenseGenerate } from "@/api/licenses";
+import { licensesApi, type License, type LicenseFeature, type LicenseGenerate, type MachineInfo } from "@/api/licenses";
 
 const inputCls =
   "mt-1 h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant";
@@ -35,13 +35,15 @@ export default function LicenseGeneratePage() {
     features: [],
     allowed_tools: [],
     expires_at: "",
-    machine_fingerprint: "",
+    machine_info_id: "",
   });
 
   const [toolSearch, setToolSearch] = useState("");
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [availableTools, setAvailableTools] = useState<{ name: string; description: string; category: string; active: boolean }[]>([]);
   const [loadingTools, setLoadingTools] = useState(true);
+  const [machineInfos, setMachineInfos] = useState<MachineInfo[]>([]);
+  const [loadingMachineInfos, setLoadingMachineInfos] = useState(false);
 
   useEffect(() => {
     customersApi
@@ -60,6 +62,20 @@ export default function LicenseGeneratePage() {
       setForm((f) => ({ ...f, customer_id: preselectedCustomer }));
     }
   }, [preselectedCustomer]);
+
+  // Fetch machine infos when customer changes
+  useEffect(() => {
+    if (!form.customer_id) {
+      setMachineInfos([]);
+      return;
+    }
+    setLoadingMachineInfos(true);
+    licensesApi
+      .listMachineInfos(form.customer_id)
+      .then(setMachineInfos)
+      .catch(() => setMachineInfos([]))
+      .finally(() => setLoadingMachineInfos(false));
+  }, [form.customer_id]);
 
   const toggleFeature = (feature: LicenseFeature) => {
     setForm((f) => ({
@@ -408,55 +424,35 @@ export default function LicenseGeneratePage() {
           />
         </div>
 
-        {/* Fingerprint — upload machine-info.json */}
+        {/* Machine Info — select from stored entries */}
         <div>
-          <label className={labelCls}>Machine Fingerprint</label>
-          <div className="mt-1 space-y-3">
-            {/* Upload button */}
-            <div className="flex items-center gap-3">
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-primary hover:text-on-surface">
-                <MaterialSymbol name="upload_file" className="text-lg" filled />
-                Upload machine-info.json
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      const text = await file.text();
-                      const machineInfo = JSON.parse(text);
-                      setError(null);
-                      // Call backend to hash
-                      const { fingerprint } = await licensesApi.hashMachineInfo(machineInfo);
-                      setForm((f) => ({ ...f, machine_fingerprint: fingerprint }));
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Failed to process machine-info.json");
-                    }
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {form.machine_fingerprint && (
-                <span className="flex items-center gap-1 text-xs text-tertiary">
-                  <MaterialSymbol name="check_circle" className="text-sm" filled />
-                  Fingerprint generated
-                </span>
-              )}
-            </div>
-            {/* Display fingerprint hash */}
-            <input
-              type="text"
-              required
-              readOnly
-              value={form.machine_fingerprint}
-              className={`${inputCls} bg-surface-container font-mono text-xs`}
-              placeholder="SHA256 fingerprint will appear here after upload"
-            />
-            <p className="text-xs text-on-surface-variant">
-              Upload the machine-info.json file collected from the customer&apos;s server
-            </p>
+          <label className={labelCls}>Machine Info</label>
+          <div className="mt-1 space-y-2">
+            {!form.customer_id ? (
+              <p className="text-xs text-on-surface-variant">Select a customer first</p>
+            ) : loadingMachineInfos ? (
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                <LoaderSvg className="size-4" label="Loading" /> Loading machine infos…
+              </div>
+            ) : machineInfos.length === 0 ? (
+              <p className="text-xs text-on-surface-variant">
+                No machine info found for this customer. Submit machine info via the API first.
+              </p>
+            ) : (
+              <select
+                required
+                value={form.machine_info_id}
+                onChange={(e) => setForm({ ...form, machine_info_id: e.target.value })}
+                className={inputCls}
+              >
+                <option value="">Select machine…</option>
+                {machineInfos.map((mi) => (
+                  <option key={mi.id} value={mi.id}>
+                    {mi.label || mi.hostname || mi.machine_id || mi.fingerprint.slice(0, 16) + "…"} — {mi.fingerprint.slice(0, 12)}…
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

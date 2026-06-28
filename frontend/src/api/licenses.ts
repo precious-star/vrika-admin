@@ -4,6 +4,16 @@ export type LicenseFeature = "ai_agent" | "network_scanner" | "malware_analysis"
 
 export type LicenseType = "free_trial" | "standard" | "premium" | "enterprise";
 
+export type MachineInfo = {
+  id: string;
+  customer_id: string;
+  machine_id: string;
+  hostname: string;
+  fingerprint: string;
+  label: string;
+  created_at: string;
+};
+
 export type License = {
   id: string;
   customer_id: string;
@@ -26,7 +36,7 @@ export type LicenseGenerate = {
   features: LicenseFeature[];
   allowed_tools: string[];
   expires_at: string;
-  machine_fingerprint: string;
+  machine_info_id: string;
 };
 
 export type LicenseDashboardStats = {
@@ -81,6 +91,11 @@ export const licensesApi = {
 
   async hashMachineInfo(machineInfo: Record<string, string>): Promise<{ fingerprint: string }> {
     const { data } = await apiClient.post("/license-admin/machine-info/hash", machineInfo);
+    return data;
+  },
+
+  async listMachineInfos(customerId: string): Promise<MachineInfo[]> {
+    const { data } = await apiClient.get(`/license-admin/customers/${customerId}/machine-info`);
     return data;
   },
 

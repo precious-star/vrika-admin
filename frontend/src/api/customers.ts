@@ -5,6 +5,8 @@ export type Customer = {
   name: string;
   email: string;
   organization: string;
+  phone: string;
+  address: string;
   created_at: string;
   licenses_count: number;
 };
@@ -13,6 +15,8 @@ export type CustomerCreate = {
   name: string;
   email: string;
   organization: string;
+  phone: string;
+  address: string;
 };
 
 export const customersApi = {
