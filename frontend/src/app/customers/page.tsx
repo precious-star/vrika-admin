@@ -162,7 +162,7 @@ export default function CustomersPage() {
       )}
 
       {/* Customers table */}
-      <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-outline-variant bg-surface-container">
@@ -193,7 +193,7 @@ export default function CustomersPage() {
                       {c.licenses_count}
                     </span>
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => copyCustomerId(c.id)}
